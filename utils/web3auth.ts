@@ -15,7 +15,7 @@ export const redirectUrl =
 const chainConfig = {
   chainNamespace: ChainNamespace.EIP155,
   chainId: '0xaa36a7',
-  rpcTarget: 'https://1rpc.io/sepolia',
+  rpcTarget: 'https://eth-sepolia.g.alchemy.com/v2/Lo5RzjpNv0wsabG0SvR-_U_P15eANYhc',
   // Avoid using public rpcTarget in production.
   // Use services like Infura, Quicknode etc
   displayName: 'Ethereum Sepolia Testnet',
@@ -26,7 +26,7 @@ const chainConfig = {
   logo: 'https://cryptologos.cc/logos/ethereum-eth-logo.png',
 };
 
-const ethereumPrivateKeyProvider = new EthereumPrivateKeyProvider({
+export const ethereumPrivateKeyProvider = new EthereumPrivateKeyProvider({
   config: {
     chainConfig,
   },
