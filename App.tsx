@@ -5,8 +5,15 @@
  * @format
  */
 
+import { useSDK } from '@metamask/sdk-react';
 import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  Button,
+  StatusBar,
+  StyleSheet,
+  useColorScheme,
+  View,
+} from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -25,13 +32,21 @@ function App() {
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
+  const { connect, terminate, account, chainId, ethereum, status, ready } = useSDK();
+
+  // Connect to MetaMask
+  const connectWallet = async () => {
+    try {
+      console.log(connect, terminate, account, chainId, ethereum, status, ready);
+      await connect();
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
+      <Button onPress={connectWallet} title="Connect" />
     </View>
   );
 }
