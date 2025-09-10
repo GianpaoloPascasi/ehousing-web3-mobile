@@ -4,22 +4,21 @@
  *
  * @format
  */
-
-import { MetaMaskProvider, SDKConfigProvider, useSDK, useSDKConfig } from '@metamask/sdk-react';
-// import BackgroundTimer from 'react-native-background-timer';
-import { useEffect } from 'react';
+import MetaMaskSDK, { CommunicationLayerPreference } from '@metamask/sdk';
+import { ethers } from 'ethers';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
+  Linking,
   StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import BackgroundTimer from 'react-native-background-timer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -32,102 +31,130 @@ function App() {
   );
 }
 
-const WithSDKConfig = ({ children }: { children: React.ReactNode }) => {
-  const {
-    socketServer,
-    infuraAPIKey,
-    useDeeplink,
-    debug,
-    checkInstallationImmediately,
-  } = useSDKConfig();
-
-  return (
-    <MetaMaskProvider
-      debug={debug}
-      sdkOptions={{
-        communicationServerUrl: socketServer,
-        infuraAPIKey,
-        readonlyRPCMap: {
-          '0x539': process.env.NEXT_PUBLIC_PROVIDER_RPCURL ?? '',
-        },
-        logging: {
-          developerMode: true,
-          plaintext: true,
-        },
-        openDeeplink: (link: string, _target?: string) => {
-          console.debug(`App::openDeepLink() ${link}`);
-          // if (canOpenLink) {
-          //   Linking.openURL(link);
-          // } else {
-          //   console.debug(
-          //     'useBlockchainProiver::openDeepLink app is not active - skip link',
-          //     link,
-          //   );
-          // }
-        },
-        // timer: BackgroundTimer,
-        useDeeplink,
-        checkInstallationImmediately: true,
-        storage: {
-          enabled: true,
-          // storageManager: new StoraManagerAS(),
-        },
-        dappMetadata: {
-          name: 'devreactnative',
-          url: 'https://demornativesdk.metamask.io',
-        },
-        i18nOptions: {
-          enabled: true,
-        },
-      }}
-    >
-      {children}
-    </MetaMaskProvider>
-  );
-};
-
 function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  const { account, chainId, ethereum, sdk } = useSDK();
   // check https://docs.metamask.io/sdk/connect/react-native/
+  const sdk = useRef<MetaMaskSDK>(null);
+  const [initialized, setInitialized] = useState(false);
+  const [accounts, setAccounts] = useState<string[] | undefined>(undefined);
+
+  useEffect(() => {
+    sdk.current = new MetaMaskSDK({
+      dappMetadata: {
+        name: 'MyDapp',
+        url: 'https://mydapp.com',
+      },
+      communicationLayerPreference: CommunicationLayerPreference.SOCKET, // recommended for mobile
+      timer: BackgroundTimer,
+      openDeeplink: string => {
+        console.log('Trying to open', string);
+        Linking.openURL(string);
+      },
+      storage: {
+        enabled: true,
+        // duration: 999999999,
+        // storageManager: {
+        //   async persistAccounts(accounts, context) {
+        //     await AsyncStorage.setItem('accounts', JSON.stringify(accounts));
+        //   },
+        //   async persistChannelConfig(channelConfig, context) {
+        //     await AsyncStorage.setItem(
+        //       'channelConfig',
+        //       JSON.stringify(channelConfig),
+        //     );
+        //   },
+        //   async persistChainId(chainId, context) {
+        //     await AsyncStorage.setItem('chainId', chainId);
+        //   },
+        //   async getCachedAccounts() {
+        //     return JSON.parse(await AsyncStorage.getItem('accounts') ?? '[]') as string[];
+        //   },
+        //   async getPersistedChannelConfig() {
+        //     return JSON.parse(await AsyncStorage.getItem('channelConfig') ?? '{}');
+        //   },
+        //   getCachedChainId() {
+        //     return AsyncStorage.getItem('chainId');
+        //   },
+        //   async terminate() {
+        //     await AsyncStorage.clear();
+        //   },
+        // },
+      },
+    });
+    sdk.current.on('connectWithResponse', payload =>
+      console.log('connectWithResponse', payload),
+    );
+    sdk.current.on('connection_status', payload =>
+      console.log('connection_status', payload),
+    );
+    sdk.current.on('initialized', payload => {
+      console.log(
+        'initialized',
+        payload,
+        sdk.current?.activeProvider?.getSelectedAddress(),
+      );
+      setInitialized(true);
+    });
+    sdk.current.on('provider_update', payload =>
+      console.log('provider_update', payload),
+    );
+
+    const resume = async () => {
+      await sdk.current?.resume();
+      console.log('Resumed');
+    };
+    resume();
+  }, []);
+
   // Connect to MetaMask
   const connectWallet = async () => {
+    const ethereum = sdk.current?.activeProvider;
+    if (!ethereum) {
+      console.error('Provider not initialized');
+      return;
+    }
     try {
-      console.log(sdk?.connect, sdk)
-      await sdk?.connect();
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
+      setAccounts(await sdk.current?.connect());
+      // const accounts = await ethereum?.request({
+      //   method: 'eth_requestAccounts',
+      // });
+      console.log('Connected!');
+      await sdk.current?.resume();
+      const provider = new ethers.providers.Web3Provider(ethereum);
+      const signer = provider.getSigner();
+      const balance = await signer.getBalance();
+      console.log('Connected account:', accounts[0]);
+      console.log('ETH balance:', ethers.utils.formatEther(balance));
+    } catch (err) {
+      console.error('Connection error:', err);
     }
   };
 
   // Handle state changes
-  useEffect(() => {
-    if (account && chainId) {
-      // Handle account and network changes
-    }
-  }, [account, chainId]);
+  // useEffect(() => {
+  //   if (account && chainId) {
+  //     // Handle account and network changes
+  //   }
+  // }, [account, chainId]);
 
   // Disconnect wallet
   const disconnectWallet = async () => {
-    await sdk?.terminate();
+    await sdk.current?.terminate();
+    setAccounts(undefined);
+    console.log('Disconnected');
   };
 
   return (
-    <SDKConfigProvider
-      // initialSocketServer={COMM_SERVER_URL}
-      // initialInfuraKey={INFURA_API_KEY}
-    >
-      <WithSDKConfig>
-        <View style={styles.container}>
-          <Button onPress={connectWallet} title="Connect" />
-          {account ? <Text>{account}</Text> : null}
-          {account ? (
-            <Button onPress={disconnectWallet} title="DisConnect" />
-          ) : null}
-        </View>
-      </WithSDKConfig>
-    </SDKConfigProvider>
+    <View style={styles.container}>
+      {!accounts && initialized ? (
+        <Button onPress={connectWallet} title="Connect" />
+      ) : null}
+
+      <Text>Account: {accounts && accounts[0]}</Text>
+
+      {accounts ? (
+        <Button onPress={disconnectWallet} title="DisConnect" />
+      ) : null}
+    </View>
   );
 }
 
