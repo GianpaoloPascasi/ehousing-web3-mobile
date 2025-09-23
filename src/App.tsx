@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BackgroundTimer from 'react-native-background-timer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
