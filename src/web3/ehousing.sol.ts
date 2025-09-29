@@ -27,7 +27,7 @@ function getReadableContract(sdkProvider: SDKProvider) {
   }
   const contract = getContract({
     abi,
-    address: process.env.EHOUSING_CONTRACT_ADDRESS,
+    address: process.env.EHOUSING_CONTRACT_ADDRESS as `0x${string}`,
     client: {
       wallet: getWalletClient(sdkProvider),
       public: client,

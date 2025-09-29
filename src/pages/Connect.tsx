@@ -1,60 +1,62 @@
-import MetaMaskSDK, { SDKProvider } from '@metamask/sdk';
+import MetaMaskSDK from '@metamask/sdk';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Button, StyleSheet, Text, View } from 'react-native';
-import { getReadableContract } from '../web3/ehousing.sol';
+import { Button, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import useMetamaskSdk from '../web3/sdk';
+import useMetamaskSdk from '../web3/useMetamaskSDK';
+import useIsAdmin from '../web3/useIsAdmin';
+import _BackgroundTimer from 'react-native-background-timer';
 
 function Connect() {
   // check https://docs.metamask.io/sdk/connect/react-native/
   const { sdk, isInitialized, isConnected } = useMetamaskSdk();
   const [accounts, setAccounts] = useState<string[] | undefined>(undefined);
   const navigation = useNavigation();
+  const { isAdmin, isLoadingAdmin } = useIsAdmin();
 
   const redirect = useCallback(
-    (ethereum: SDKProvider) =>
+    () =>
       (async function () {
-        console.log('Redirecting');
-        const contract = getReadableContract(ethereum);
-        const initialOwner = (await contract.read._initialOwner()) as string;
-        if (sdk?.getProvider()?.getSelectedAddress() == null) {
-          const requestedAccounts = await ethereum?.request({
-            method: 'eth_requestAccounts',
-          });
-          console.log('requestedAccounts: ', requestedAccounts);
+        console.log(
+          'Redirecting',
+          'isConnected ' + isConnected,
+          'isAdmin ' + isAdmin,
+          'isLoadingAdmin ' + isLoadingAdmin,
+        );
+        if (isLoadingAdmin) {
+          return;
         }
-        console.log(initialOwner, sdk?.getProvider()?.getSelectedAddress());
-        if (initialOwner.toLowerCase() === sdk?.getProvider()?.getSelectedAddress()?.toLowerCase()) {
+        if (!isConnected) {
+          console.warn('Tried to redirect unauthenticated user!');
+          return;
+        }
+        if (isAdmin) {
           navigation.navigate('AdminIndex');
         } else {
           navigation.navigate('CustomerIndex');
         }
       })(),
-    [navigation, sdk],
+    [navigation, isAdmin, isConnected, isLoadingAdmin],
   );
 
   useEffect(() => {
+    let id = 0;
     (async () => {
       const savedAccount = await AsyncStorage.getItem('lastAccount');
       if (savedAccount) {
-        // setTimeout(async () => await sdk?.resume(), 3000);
-        setTimeout(async () => await sdk?.getProvider()?.request({
-            method: 'eth_requestAccounts',
-          }), 3000);
+        _BackgroundTimer.setTimeout(async () => await sdk?.resume(), 3000);
+        id = _BackgroundTimer.setInterval(() => {
+          console.log('Checking connected');
+          if (isConnected) {
+            console.log('IsConnected!');
+            _BackgroundTimer.clearInterval(id);
+            redirect();
+          }
+        }, 1000);
       }
     })();
+    return () => _BackgroundTimer.clearInterval(id);
   }, [isInitialized, sdk, isConnected, redirect]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', async state => {
-      if (state === 'active') {
-        console.log('App resurrected! Isconnected:' + isConnected);
-        redirect(sdk!.getProvider()!);
-      }
-    });
-    return () => sub.remove();
-  }, [sdk, redirect, isConnected]);
 
   // Connect to MetaMask
   const connectWallet = useCallback(async () => {
@@ -82,12 +84,7 @@ function Connect() {
         }
       }
 
-      // const accounts = await ethereum?.request({
-      //   method: 'eth_requestAccounts',
-      // });
       console.log('Connected!');
-
-      // await redirect()(ethereum);
     } catch (err) {
       console.error('Connection error:', err);
     }
