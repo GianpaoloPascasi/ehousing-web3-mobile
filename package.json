@@ -22,6 +22,7 @@
     "@rneui/themed": "^4.0.0-rc.8",
     "eciesjs": "^0.4.15",
     "ethers": "^5.7.2",
+    "fast-text-encoding": "^1.0.0",
     "node-libs-react-native": "^1.2.1",
     "react": "19.1.0",
     "react-native": "0.81.1",

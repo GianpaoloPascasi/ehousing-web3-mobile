@@ -50,6 +50,8 @@ export default function RootStack() {
       )} */}
       <rootStack.Screen name={'Connect'} component={Connect} />
       <rootStack.Screen name={'AdminIndex'} component={AdminIndex} />
+      <rootStack.Screen name={'HouseList'} component={HouseList} />
+      <rootStack.Screen name={'CreateHouse'} component={CreateHouse} />
       <rootStack.Screen name={'CustomerIndex'} component={CustomerIndex} />
     </rootStack.Navigator>
   );

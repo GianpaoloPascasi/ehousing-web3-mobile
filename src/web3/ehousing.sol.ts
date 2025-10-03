@@ -37,4 +37,4 @@ function getReadableContract(sdkProvider: SDKProvider) {
   return contract;
 }
 
-export { client, getWalletClient, getReadableContract };
+export { client, getWalletClient, getReadableContract, abi };
